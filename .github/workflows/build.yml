@@ -1,0 +1,29 @@
+name: Build DVD Logo Screensaver
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install pyinstaller pygame
+      
+      - name: Build executable
+        run: pyinstaller --onefile --windowed --name DVDScreensaver  main.py
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DVD-Screensaver
+          path: dist/DVDScreensaver.exe
