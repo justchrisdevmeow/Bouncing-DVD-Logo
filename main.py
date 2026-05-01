@@ -9,7 +9,7 @@ pygame.init()
 
 # Settings
 settings = {
-    'logo_path': 'default.png',
+    'logo_path': '',
     'speed': 3,
     'fullscreen': True,
     'logo_scale': 1.0,
@@ -20,20 +20,30 @@ settings = {
 def load_logo():
     """Load logo from file, resize it"""
     try:
-        img = pygame.image.load(settings['logo_path'])
+        if settings['logo_path'] and os.path.exists(settings['logo_path']):
+            img = pygame.image.load(settings['logo_path'])
+        else:
+            # Create a fallback logo (colored rectangle with text)
+            surf = pygame.Surface((200, 100), pygame.SRCALPHA)
+            surf.fill((255, 100, 100))
+            font = pygame.font.Font(None, 30)
+            text = font.render("DVD Logo", True, (255,255,255))
+            surf.blit(text, (50, 35))
+            return surf.convert_alpha()
+        
         if settings['logo_scale'] != 1.0:
             size = img.get_size()
             new_size = (int(size[0] * settings['logo_scale']), int(size[1] * settings['logo_scale']))
             img = pygame.transform.scale(img, new_size)
         return img.convert_alpha()
-    except:
-        # Create a fallback logo (colored rectangle with text)
+    except Exception as e:
+        print(f"Error loading logo: {e}")
         surf = pygame.Surface((200, 100), pygame.SRCALPHA)
         surf.fill((255, 100, 100))
         font = pygame.font.Font(None, 30)
-        text = font.render("No Logo", True, (255,255,255))
+        text = font.render("DVD Logo", True, (255,255,255))
         surf.blit(text, (50, 35))
-        return surf
+        return surf.convert_alpha()
 
 def save_settings():
     """Save settings to file"""
@@ -53,7 +63,10 @@ def load_settings_file():
                         if key == 'logo_path':
                             settings[key] = value
                         elif key in ['speed', 'logo_scale']:
-                            settings[key] = float(value)
+                            try:
+                                settings[key] = float(value)
+                            except:
+                                pass
                         elif key in ['fullscreen', 'trail', 'color_change']:
                             settings[key] = value.lower() == 'true'
                         else:
@@ -115,24 +128,25 @@ def open_settings():
         save_settings()
         root.quit()
         root.destroy()
+        return  # Signal to restart
     
     Button(root, text="Save and Restart", command=save_and_exit, bg='green', fg='white').pack(pady=20)
+    root.mainloop()
 
 def main():
     load_settings_file()
     
     # Setup display
-    screen_info = pygame.display.Info()
-    screen_width = screen_info.current_w
-    screen_height = screen_info.current_h
-    
-    if settings['fullscreen']:
-        screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
-        screen_width, screen_height = screen.get_size()
-    else:
+    try:
+        if settings['fullscreen']:
+            screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+        else:
+            screen = pygame.display.set_mode((800, 600))
+    except Exception as e:
+        print(f"Display error: {e}")
         screen = pygame.display.set_mode((800, 600))
-        screen_width, screen_height = 800, 600
     
+    screen_width, screen_height = screen.get_size()
     pygame.display.set_caption("DVD Logo Screensaver")
     
     # Load logo
@@ -145,12 +159,9 @@ def main():
     dx = settings['speed']
     dy = settings['speed']
     
-    # For trail effect
-    trail_positions = []
-    trail_length = 20
-    
     # Color tint (default white)
     tint_color = (255, 255, 255)
+    colors = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255), (0,255,255)]
     tint_index = 0
     
     clock = pygame.time.Clock()
@@ -167,7 +178,6 @@ def main():
                     open_settings()
                     return  # Restart after settings
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # Click to open settings
                 open_settings()
                 return
         
@@ -175,12 +185,11 @@ def main():
         x += dx
         y += dy
         
-        # Bounce off walls and update tint
+        # Bounce off walls
         bounced = False
         if x <= 0 or x + logo_width >= screen_width:
             dx = -dx
             bounced = True
-            # Keep inside bounds
             x = max(0, min(x, screen_width - logo_width))
         if y <= 0 or y + logo_height >= screen_height:
             dy = -dy
@@ -189,8 +198,7 @@ def main():
         
         # Rotate tint color on bounce
         if bounced and settings['color_change']:
-            tint_index = (tint_index + 1) % 6
-            colors = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255), (0,255,255)]
+            tint_index = (tint_index + 1) % len(colors)
             tint_color = colors[tint_index]
         
         # Apply tint to logo
@@ -201,7 +209,6 @@ def main():
         
         # Clear screen
         if settings['trail']:
-            # Fade trail effect
             screen.fill((0,0,0, 30), special_flags=pygame.BLEND_RGBA_MULT)
         else:
             screen.fill((0,0,0))
